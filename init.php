@@ -42,6 +42,7 @@ class notify_xmpp extends Plugin {
 		$test_xmpp = true;
 		
 		$cfg = array(
+			'tag'			=> $_POST['tag'],
 			'xmpp_host'		=> $_POST['xmpp_host'],
 			'xmpp_port'		=> $_POST['xmpp_port'],
 			'xmpp_user'		=> $_POST['xmpp_user'],
@@ -55,9 +56,10 @@ class notify_xmpp extends Plugin {
 		
 		if ($test_xmpp) {
 			$this->_send($cfg, 'Congrats, your settings work. Now you are ready to receive notifications.');
+			echo __("Settings saved, you should receive a test message now.");
+		} else {
+			echo __("Settings saved, but they are incomplete.");
 		}
-		
-		echo __("Data saved.");
 	}
 
 	function hook_prefs_tab($args) {
@@ -67,8 +69,9 @@ class notify_xmpp extends Plugin {
 
 		$cfg = $this->_config(false);
 		if ($cfg['xmpp_port'] <= 0) $cfg['xmpp_port'] = 5222;
+		if (empty($cfg['tag'])) $cfg['tag'] = 'notify_xmpp';
 		
-		print '<p>After setting up your account information, you may invoke this plugin in your filter rules in order to receive notifications.</p>';
+		print '<p>After setting up your account information, you may invoke this plugin in your filter rules in order to receive notifications. The tag will be automatically assigned after sending and should be unique.</p>';
 		
 		print '<form dojoType="dijit.form.Form">';
 
@@ -98,6 +101,8 @@ class notify_xmpp extends Plugin {
 				print '<col />';
 			print '</colgroup>';
 
+			print '<tr><td>'.__('Tag').'</td>';
+			print '<td class="prefValue"><input dojoType="dijit.form.ValidationTextBox" required="1" name="tag" type="text" value="'.$cfg['tag'].'" placeholder="notify_xmpp"></td></tr>';
 			print '<tr><td>'.__('XMPP Host').'</td>';
 			print '<td class="prefValue"><input dojoType="dijit.form.ValidationTextBox" required="1" name="xmpp_host" type="text" value="'.$cfg['xmpp_host'].'" placeholder="example.org"></td></tr>';
 			print '<tr><td>'.__('XMPP Port').'</td>';
@@ -119,20 +124,11 @@ class notify_xmpp extends Plugin {
 	}
 	
 	function hook_article_filter_action($article, $action) {
-		$owner_uid = (isset($article["owner_uid"])) ? $article["owner_uid"] : '';
-		
 		if ($action == 'xmpp_send') {
-			$sent = false;
 			$cfg = $this->_config();
-			$plugin_data = (isset($article["plugin_data"])) ? explode(':', $article["plugin_data"]) : array();
+			$tags = (is_array($article["tags"])) ? array_flip($article["tags"]) : array();
 			
-			foreach ($plugin_data as $item) {
-				if (strpos($item, 'notify_xmpp,'.$owner_uid) !== false) {
-					$sent = true;
-					break;
-				}
-			}
-			if (!$sent && is_array($cfg)) {
+			if (is_array($cfg) && !isset($tags[$cfg['tag']])) {
 				$msg = array();
 				if (!empty($article["title"])) $msg[] = trim(html_entity_decode(strip_tags($article["title"])));
 				if (!empty($article["link"])) $msg[] = $article["link"];
@@ -144,8 +140,9 @@ class notify_xmpp extends Plugin {
 				
 				$this->_send($this->_config(), trim(implode("\n\n", $msg)));
 				
-				$plugin_data[] = 'notify_xmpp,'.$owner_uid;
-				$article["plugin_data"] = implode(':', $plugin_data);
+				$tags = array_keys($tags);
+				$tags[] = $cfg['tag'];
+				$article["tags"] = $tags;
 			}
 		}
 		
@@ -174,6 +171,7 @@ class notify_xmpp extends Plugin {
 	
 	private function _config($check = true) {
 		$cfg = array(
+			'tag'			=> $this->host->get($this, 'tag'),
 			'xmpp_host'		=> $this->host->get($this, 'xmpp_host'),
 			'xmpp_port'		=> $this->host->get($this, 'xmpp_port'),
 			'xmpp_user'		=> $this->host->get($this, 'xmpp_user'),
