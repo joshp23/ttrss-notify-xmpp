@@ -1,6 +1,6 @@
 <?php
 /*
- * Notifications via XMPP v1.0.0
+ * Notifications via XMPP v1.0.1
  * Tiny Tiny RSS Plugin
  * 
  * Copyright (C) 2016 fulmeek
@@ -130,7 +130,14 @@ class notify_xmpp extends Plugin {
 			
 			if (is_array($cfg) && !isset($tags[$cfg['tag']])) {
 				$msg = array();
-				if (!empty($article["title"])) $msg[] = trim(html_entity_decode(strip_tags($article["title"])));
+				if (!empty($article["title"]) || !empty($article["author"])) {
+					$line = trim(html_entity_decode(strip_tags($article["title"])));
+					if (!empty($article["author"])) {
+						if (!empty($line)) $line .= "\n";
+						$line .= trim(html_entity_decode(strip_tags($article["author"])));
+					}
+					$msg[] = $line;
+				}
 				if (!empty($article["link"])) $msg[] = $article["link"];
 				if (!empty($article["content"])) {
 					$text = html_entity_decode(strip_tags($article["content"]));
